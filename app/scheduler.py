@@ -38,7 +38,7 @@ def start_scheduler() -> AsyncIOScheduler:
         _run_daily_digest,
         trigger=CronTrigger(hour=int(hour), minute=int(minute)),
         id="daily_news_digest",
-        name="Daily Morning News Digest",
+        name="Daily Morning AI News Digest",
         replace_existing=True,
         misfire_grace_time=300,  # 5 min grace if server was briefly down
     )
