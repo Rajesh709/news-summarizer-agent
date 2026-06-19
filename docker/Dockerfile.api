@@ -1,34 +1,22 @@
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Environment flags
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
+    build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Railway sets PORT dynamically — default to 8001 locally
 EXPOSE 8001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8001}/api/v1/health || exit 1
-
-# Start command — uses Railway's $PORT env variable
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001}
+# Use shell form so $PORT is resolved at runtime by Railway
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001}"]
