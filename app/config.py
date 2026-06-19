@@ -28,6 +28,17 @@ class Settings(BaseSettings):
     streamlit_port: int = 8502
     backend_url: str = "http://localhost:8001"
 
+    # Email (Gmail SMTP)
+    email_sender: str = ""
+    email_app_password: str = ""
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 465
+
+    # Daily Digest Scheduler
+    digest_recipient: str = "rajeshkm.709@gmail.com"
+    digest_time: str = "07:00"          # 24h format — 7:00 AM
+    digest_timezone: str = "Asia/Kolkata"  # IST
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,

@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from typing import Optional
+from pydantic import BaseModel, Field, EmailStr
 
 
 class ChatRequest(BaseModel):
@@ -14,8 +15,19 @@ class ChatResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     redis: bool
+    scheduler_running: bool = False
+    next_digest: Optional[str] = None
     version: str = "1.0.0"
 
 
 class ClearSessionRequest(BaseModel):
     session_id: str
+
+
+class DigestRequest(BaseModel):
+    recipient: Optional[str] = None   # defaults to DIGEST_RECIPIENT in .env
+
+
+class DigestResponse(BaseModel):
+    message: str
+    recipient: str

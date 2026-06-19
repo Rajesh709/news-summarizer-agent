@@ -13,7 +13,6 @@ st.set_page_config(
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8001")
 API_URL = f"{BACKEND_URL}/api/v1"
 
-# ── Session state ─────────────────────────────────────────────────────────────
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 if "messages" not in st.session_state:
@@ -25,6 +24,49 @@ with st.sidebar:
     st.markdown("*Your intelligent news summarizer*")
     st.markdown("---")
 
+    # Health + Scheduler status
+    try:
+        r = httpx.get(f"{API_URL}/health", timeout=3)
+        h = r.json()
+        st.markdown(f"{'🟢' if h['status'] == 'healthy' else '🟡'} **API:** {h['status'].title()}")
+        st.markdown(f"{'🟢' if h['redis'] else '🔴'} **Redis:** {'Connected' if h['redis'] else 'Disconnected'}")
+        st.markdown(f"{'🟢' if h.get('scheduler_running') else '🔴'} **Scheduler:** {'Active' if h.get('scheduler_running') else 'Inactive'}")
+        if h.get("next_digest"):
+            st.caption(f"⏰ Next digest: {h['next_digest']}")
+    except Exception:
+        st.markdown("🔴 **API:** Offline")
+
+    st.markdown("---")
+
+    # Daily Email Digest controls
+    st.markdown("### 📧 Daily Email Digest")
+    st.markdown("Sent automatically at **7:00 AM IST** every day.")
+    st.markdown("📬 **To:** rajeshkm.709@gmail.com")
+
+    if st.button("📤 Send Digest Now", use_container_width=True, type="primary"):
+        with st.spinner("Sending digest..."):
+            try:
+                resp = httpx.post(
+                    f"{API_URL}/digest/send",
+                    json={"recipient": "rajeshkm.709@gmail.com"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    st.success("✅ Digest sent! Check your inbox.")
+                else:
+                    st.error(f"Failed: {resp.text}")
+            except Exception as exc:
+                st.error(f"Error: {exc}")
+
+    if st.button("📊 Scheduler Status", use_container_width=True):
+        try:
+            r = httpx.get(f"{API_URL}/digest/status", timeout=3)
+            s = r.json()
+            st.json(s)
+        except Exception as exc:
+            st.error(str(exc))
+
+    st.markdown("---")
     st.markdown("**Session**")
     st.code(st.session_state.session_id[:8] + "...", language=None)
 
@@ -39,48 +81,23 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
-    st.markdown("### 💡 Try These Queries")
-
-    categories = {
-        "🌍 Top Headlines": [
-            "What are today's top news headlines?",
-            "Give me top news from India",
-            "What's happening in the UK today?",
-        ],
-        "🔍 Search News": [
-            "Latest news about Artificial Intelligence",
-            "What's the news about Tesla today?",
-            "Bitcoin latest news",
-            "News about India elections",
-        ],
-        "📂 By Category": [
-            "Show me today's technology news",
-            "What's the latest sports news?",
-            "Business headlines today",
-            "Health news this week",
-        ],
-        "🔥 Trending": [
-            "What's trending in the news right now?",
-            "What are people talking about today?",
-        ],
-    }
-
-    for section, examples in categories.items():
-        st.markdown(f"**{section}**")
-        for example in examples:
-            if st.button(f"▶ {example}", use_container_width=True, key=example):
-                st.session_state._pending = example
-                st.rerun()
-
-    st.markdown("---")
-    # Health badge
-    try:
-        r = httpx.get(f"{API_URL}/health", timeout=3)
-        h = r.json()
-        st.markdown(f"{'🟢' if h['status'] == 'healthy' else '🟡'} **API**: {h['status'].title()}")
-        st.markdown(f"{'🟢' if h['redis'] else '🔴'} **Redis**: {'Connected' if h['redis'] else 'Disconnected'}")
-    except Exception:
-        st.markdown("🔴 **API**: Offline")
+    st.markdown("### 💡 Example Queries")
+    examples = [
+        "What are today's top headlines?",
+        "Latest news about Artificial Intelligence",
+        "Show me technology news today",
+        "What's trending in the news right now?",
+        "Give me news from India",
+        "Business headlines today",
+        "Sports news today",
+        "Health news this week",
+        "Latest news about Bitcoin",
+        "What's happening with Tesla?",
+    ]
+    for ex in examples:
+        if st.button(f"▶ {ex}", use_container_width=True, key=ex):
+            st.session_state._pending = ex
+            st.rerun()
 
 # ── Main chat area ────────────────────────────────────────────────────────────
 st.title("📰 NewsBot AI — News Summarizer Agent")
@@ -94,16 +111,14 @@ with col2:
 with col3:
     st.metric("🔍 Search Depth", "7 days")
 with col4:
-    st.metric("📰 Sources", "80,000+")
+    st.metric("📧 Auto Digest", "7:00 AM")
 
 st.markdown("---")
 
-# Render history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Handle button clicks
 pending = st.session_state.pop("_pending", None)
 user_input = st.chat_input("Ask about any news topic, country, or category...") or pending
 
@@ -120,10 +135,7 @@ if user_input:
                     json={"message": user_input, "session_id": st.session_state.session_id},
                     timeout=60.0,
                 )
-                if response.status_code == 200:
-                    answer = response.json()["response"]
-                else:
-                    answer = f"⚠️ Backend error ({response.status_code}): {response.text}"
+                answer = response.json()["response"] if response.status_code == 200 else f"⚠️ Error: {response.text}"
             except httpx.ConnectError:
                 answer = "❌ Cannot connect to the API. Make sure the backend is running on port 8001."
             except httpx.TimeoutException:
