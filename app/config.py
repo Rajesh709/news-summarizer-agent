@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
@@ -11,7 +12,8 @@ class Settings(BaseSettings):
     news_api_key: str
     news_api_base_url: str = "https://newsapi.org/v2"
 
-    # Redis
+    # Redis (REDIS_URL takes priority — set automatically by Railway)
+    redis_url: Optional[str] = None
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_password: str = ""
